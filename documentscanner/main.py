@@ -8,7 +8,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOKEN_PATH = f"{ROOT_DIR}/token"
 
 try:
-    with open(TOKEN_PATH, 'r') as file:
+    with open(TOKEN_PATH, "r") as file:
         TOKEN = file.read().strip()
 except FileNotFoundError:
     print("Bot token file not found")
