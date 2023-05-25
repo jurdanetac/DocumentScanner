@@ -7,13 +7,17 @@ import os
 import sys
 from telegram import Update
 from telegram.ext import (
+    filters,
     ApplicationBuilder,
     ContextTypes,
     CommandHandler,
+    MessageHandler,
 )
 
 
+# Path of project directory root
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Path of bot token
 TOKEN_PATH = f"{ROOT_DIR}/token"
 
 
@@ -26,24 +30,46 @@ except FileNotFoundError:
     sys.exit(1)
 
 
-# Set logging to console
+# Output logs to console
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!"
-    )
+# Create app object
+application = ApplicationBuilder().token(TOKEN).build()
 
 
+# Add decorator functionality for /commands
+def command_handler(command):
+    def decorator(func):
+        handler = CommandHandler(command, func)
+        application.add_handler(handler)
+        return func
+
+    return decorator
+
+
+# Respond to /start
+@command_handler("start")
+async def start_callback(update, context):
+    await update.message.reply_text("Welcome to my awesome bot!")
+
+
+# Respond to photos
+async def photo_callback(update, context):
+    photo = update.message.photo[-1]
+    await update.message.reply_text("I received your image. Metadata:")
+    await update.message.reply_text(photo)
+
+
+# Main program execution
 if __name__ == "__main__":
-    application = ApplicationBuilder().token(TOKEN).build()
-
-    start_handler = CommandHandler("start", start)
-    application.add_handler(start_handler)
+    photo_handler = MessageHandler(filters.PHOTO, photo_callback)
+    application.add_handler(photo_handler)
 
     # Run app
     application.run_polling()
+
+    # Terminate program
+    sys.exit(0)
