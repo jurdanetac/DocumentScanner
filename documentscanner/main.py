@@ -8,6 +8,7 @@ import cv2
 import logging
 import numpy
 import os
+import Scanner
 import sys
 from io import BytesIO, StringIO
 from telegram import (
@@ -69,7 +70,8 @@ async def cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     logger.info("User %s canceled the conversation.", user.first_name)
 
     await update.message.reply_text(
-        "Bye! I hope we can talk again some day.", reply_markup=ReplyKeyboardRemove()
+        "Bye! I hope we can talk again some day.",
+        reply_markup=ReplyKeyboardRemove(),
     )
 
     return ConversationHandler.END
@@ -83,10 +85,15 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Respond to photos"""
     file = await context.bot.get_file(update.message.photo[-1])
-    with BytesIO() as out:
-        await file.download_to_memory(out)
-        await update.message.reply_text("I received your image. Metadata:")
-        await update.message.reply_text(file)
+    await file.download_to_drive()
+    await update.message.reply_text("I received your image. Metadata:")
+    await update.message.reply_text(file)
+
+    cv2.imshow("Scanned", Scanner.scan("documentscanner/test_img.jpg"))
+
+    # press q or Esc to close
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 
 PHOTOS = range(1)
@@ -106,11 +113,10 @@ async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def photos_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    reply_keyboard = [["Yes", "No"]]
-
-    photos = int(update.message.text)
-
-    logger.info("Page count of %s: %s", update.effective_user.first_name, str(photos))
+    # reply_keyboard = [["Yes", "No"]]
+    # photos = int(update.message.text)
+    # logger.info("Page count of %s: %s", update.effective_user.first_name, str(photos))
+    pass
 
 
 def main() -> None:
@@ -122,19 +128,20 @@ def main() -> None:
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("about", about_callback))
     application.add_handler(CommandHandler("help", help_callback))
+    application.add_handler(MessageHandler(filters.PHOTO, photo_callback))
 
     # Add conversation handler with the state PHOTOS
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start_callback)],
-        states={
-            PHOTOS: [
-                MessageHandler(filters.Regex("^[1-9]\d*$"), photos_callback),
-            ],
-        },
-        fallbacks=[CommandHandler("cancel", cancel_callback)],
-    )
+    # conv_handler = ConversationHandler(
+    #     entry_points=[CommandHandler("start", start_callback)],
+    #     states={
+    #         PHOTOS: [
+    #             MessageHandler(filters.Regex("^[1-9]\d*$"), photos_callback),
+    #         ],
+    #     },
+    #     fallbacks=[CommandHandler("cancel", cancel_callback)],
+    # )
 
-    application.add_handler(conv_handler)
+    # application.add_handler(conv_handler)
 
     # on non command i.e message - echo the message on Telegram
     # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
