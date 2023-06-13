@@ -11,6 +11,8 @@ import os
 import Scanner
 import sys
 from io import BytesIO, StringIO
+from pathlib import Path
+from PIL import Image
 from telegram import (
     constants,
     ForceReply,
@@ -30,6 +32,9 @@ from telegram.ext import (
 
 # Path of project directory root
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Path of images directory
+IMG_DIR = f"{ROOT_DIR}/images"
+Path(IMG_DIR).mkdir(exist_ok=True)
 # Path of bot token
 TOKEN_PATH = f"{ROOT_DIR}/token"
 
@@ -84,16 +89,19 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Respond to photos"""
-    file = await context.bot.get_file(update.message.photo[-1])
-    await file.download_to_drive()
+    img = await context.bot.get_file(update.message.photo[-1])
+    await img.download_to_drive(custom_path=f"{IMG_DIR}/{img.file_id}")
     await update.message.reply_text("I received your image. Metadata:")
-    await update.message.reply_text(file)
-
-    cv2.imshow("Scanned", Scanner.scan("documentscanner/test_img.jpg"))
-
-    # press q or Esc to close
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    await update.message.reply_text(img)
+    scanned_img = Scanner.scan(f"{IMG_DIR}/{img.file_id}")
+    scanned_file = Image.fromarray(scanned_img)
+    scanned_file_path = f"{IMG_DIR}/scanned_{img.file_id}.jpeg"
+    scanned_file.save(scanned_file_path)
+    await context.bot.send_document(
+        chat_id=update.message["chat"]["id"],
+        document=open(scanned_file_path, "rb"),
+        filename=scanned_file_path,
+    )
 
 
 PHOTOS = range(1)
@@ -103,11 +111,8 @@ async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Send a message when the command /start is issued."""
     user = update.effective_user
     await update.message.reply_html(
-        rf"Hi {user.mention_html()}!",
+        rf"Hi {user.mention_html()}!", reply_markup=ForceReply(selective=True)
     )
-    await update.message.reply_text(
-        "How many pages will you scan?", reply_markup=ForceReply(selective=True)
-    ),
 
     return PHOTOS
 

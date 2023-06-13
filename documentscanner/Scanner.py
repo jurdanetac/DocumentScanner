@@ -1,53 +1,57 @@
 import cv2
 import numpy as np
-import mapper
+from utils import *
+
+import imutils
+from skimage.filters import threshold_local
 
 
 def scan(img_path):
-    # read in the image and resize because opencv doesn't work well with big images
-    image = cv2.resize(cv2.imread(img_path), (1300, 800))
-
-    # copy original image
+    image = cv2.imread(img_path)
+    ratio = image.shape[0] / 500.0
     orig = image.copy()
+    image = imutils.resize(image, height=500)
 
-    # RGB To Gray Scale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    # cv2.imshow("Title", gray)
-    # (5,5) is the kernel size and 0 is sigma that determines the amount of blur
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    # cv2.imshow("Blur", blurred)
-    # 30 MinThreshold and 50 is the MaxThreshold
-    edged = cv2.Canny(blurred, 30, 50)
-    # cv2.imshow("Canny", edged)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    edged = cv2.Canny(gray, 75, 200)
 
-    # retrieve the contours as a list, with simple approximation model
-    contours, hierarchy = cv2.findContours(
-        edged, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
-    )
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)
+    print("STEP 1: Edge Detection")
+    cv2.imshow("Image", image)
+    cv2.imshow("Edged", edged)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    cnts = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0]
+    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:5]
+    screenCnt = 0
 
     # the loop extracts the boundary contours of the page
-    for c in contours:
+    for c in cnts:
         p = cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, 0.02 * p, True)
 
         if len(approx) == 4:
-            target = approx
+            screenCnt = approx
             break
 
-    approx = mapper.mapp(target)  # find endpoints of the sheet
+    print("STEP 2: Finding contours of paper")
+    cv2.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
+    cv2.imshow("Outline", image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-    # map to 800*800 target window
-    pts = np.float32([[0, 0], [800, 0], [800, 800], [0, 800]])
+    warped = transformFourPoints(orig, screenCnt.reshape(4, 2) * ratio)
 
-    # get the top or bird eye view effect
-    op = cv2.getPerspectiveTransform(approx, pts)
-    dst = cv2.warpPerspective(orig, op, (800, 800))
+    warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+    T = threshold_local(warped, 11, offset=10, method="gaussian")
+    warped = (warped > T).astype("uint8") * 255
 
-    # cv2.imshow("Scanned", dst)
+    print("STEP 3: Applying perspective transform")
+    cv2.imshow("Original", imutils.resize(orig, height=650))
+    cv2.imshow("Scanned", imutils.resize(warped, height=650))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-    # press q or Esc to close
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-
-    return dst
+    return warped
