@@ -9,6 +9,7 @@ import logging
 import numpy
 import os
 import Scanner
+import shutil
 import sys
 from io import BytesIO, StringIO
 from pathlib import Path
@@ -69,17 +70,25 @@ async def about_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
-async def cancel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Cancels and ends the conversation."""
-    user = update.message.from_user
-    logger.info("User %s canceled the conversation.", user.first_name)
+def reset_chat():
+    """Delete previously sent pictures"""
+    shutil.rmtree(IMG_DIR, ignore_errors=True)
+    Path(IMG_DIR).mkdir(exist_ok=True)
 
-    await update.message.reply_text(
-        "Bye! I hope we can talk again some day.",
-        reply_markup=ReplyKeyboardRemove(),
+
+async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /start is issued."""
+    reset_chat()
+    user = update.effective_user
+    await update.message.reply_html(
+        rf"Hi {user.mention_html()}!", reply_markup=ForceReply(selective=True)
     )
 
-    return ConversationHandler.END
+
+async def reset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Clear old pictures stored when the command /reset is issued."""
+    reset_chat()
+    await update.message.reply_html("Reset performed successfully.")
 
 
 async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -102,26 +111,7 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         document=open(scanned_file_path, "rb"),
         filename=scanned_file_path,
     )
-
-
-PHOTOS = range(1)
-
-
-async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
-    user = update.effective_user
-    await update.message.reply_html(
-        rf"Hi {user.mention_html()}!", reply_markup=ForceReply(selective=True)
-    )
-
-    return PHOTOS
-
-
-async def photos_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # reply_keyboard = [["Yes", "No"]]
-    # photos = int(update.message.text)
-    # logger.info("Page count of %s: %s", update.effective_user.first_name, str(photos))
-    pass
+    # images = [Image.open()]
 
 
 def main() -> None:
@@ -131,8 +121,10 @@ def main() -> None:
     application = ApplicationBuilder().token(TOKEN).build()
 
     # on different commands - answer in Telegram
+    application.add_handler(CommandHandler("start", start_callback))
     application.add_handler(CommandHandler("about", about_callback))
     application.add_handler(CommandHandler("help", help_callback))
+    application.add_handler(CommandHandler("reset", reset_callback))
     application.add_handler(MessageHandler(filters.PHOTO, photo_callback))
 
     # Add conversation handler with the state PHOTOS
