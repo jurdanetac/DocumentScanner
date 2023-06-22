@@ -1,26 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
 # Import needed third-party libraries
 # See requirements.txt for more information
-import time
-import cv2
+
 import logging
-import numpy
 import os
-import Scanner
 import shutil
 import sys
-from io import BytesIO, StringIO
+import time
 from pathlib import Path
+
+import cv2
+import numpy
 from PIL import Image
 from telegram import (
-    constants,
     ForceReply,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     Update,
+    constants,
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -31,6 +30,7 @@ from telegram.ext import (
     filters,
 )
 
+import Scanner
 
 # Path of project directory root
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

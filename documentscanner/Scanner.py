@@ -1,9 +1,9 @@
 import cv2
-import numpy as np
-from utils import *
-
 import imutils
+import numpy as np
 from skimage.filters import threshold_local
+
+from utils import *
 
 
 def scan(img_path):
