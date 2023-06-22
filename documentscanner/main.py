@@ -4,6 +4,7 @@
 
 # Import needed third-party libraries
 # See requirements.txt for more information
+import time
 import cv2
 import logging
 import numpy
@@ -35,7 +36,10 @@ from telegram.ext import (
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Path of images directory
 IMG_DIR = f"{ROOT_DIR}/images"
-Path(IMG_DIR).mkdir(exist_ok=True)
+SCANNED_IMG_DIR = f"{ROOT_DIR}/images/scanned"
+ORIGINAL_IMG_DIR = f"{ROOT_DIR}/images/original"
+# Path of scanned documents
+PDF_DIR = f"{ROOT_DIR}/pdf"
 # Path of bot token
 TOKEN_PATH = f"{ROOT_DIR}/token"
 
@@ -74,11 +78,20 @@ def reset_chat():
     """Delete previously sent pictures"""
     shutil.rmtree(IMG_DIR, ignore_errors=True)
     Path(IMG_DIR).mkdir(exist_ok=True)
+    Path(SCANNED_IMG_DIR).mkdir(exist_ok=True)
+    Path(ORIGINAL_IMG_DIR).mkdir(exist_ok=True)
+    shutil.rmtree(PDF_DIR, ignore_errors=True)
+    Path(PDF_DIR).mkdir(exist_ok=True)
 
 
 async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
     reset_chat()
+
+    Path(IMG_DIR).mkdir(exist_ok=True)
+    Path(SCANNED_IMG_DIR).mkdir(exist_ok=True)
+    Path(ORIGINAL_IMG_DIR).mkdir(exist_ok=True)
+
     user = update.effective_user
     await update.message.reply_html(
         rf"Hi {user.mention_html()}!", reply_markup=ForceReply(selective=True)
@@ -99,19 +112,37 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Respond to photos"""
     img = await context.bot.get_file(update.message.photo[-1])
-    await img.download_to_drive(custom_path=f"{IMG_DIR}/{img.file_id}")
+    await img.download_to_drive(custom_path=f"{ORIGINAL_IMG_DIR}/{img.file_id}")
     await update.message.reply_text("I received your image. Metadata:")
     await update.message.reply_text(img)
-    scanned_img = Scanner.scan(f"{IMG_DIR}/{img.file_id}")
+    scanned_img = Scanner.scan(f"{ORIGINAL_IMG_DIR}/{img.file_id}")
     scanned_file = Image.fromarray(scanned_img)
-    scanned_file_path = f"{IMG_DIR}/scanned_{img.file_id}.jpeg"
+    scanned_file_path = f"{SCANNED_IMG_DIR}/scanned_{img.file_id}.jpeg"
     scanned_file.save(scanned_file_path)
     await context.bot.send_document(
         chat_id=update.message["chat"]["id"],
         document=open(scanned_file_path, "rb"),
         filename=scanned_file_path,
     )
-    # images = [Image.open()]
+
+
+async def pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if os.listdir(SCANNED_IMG_DIR):
+        images = [
+            Image.open(f"{SCANNED_IMG_DIR}/{f}") for f in os.listdir(SCANNED_IMG_DIR)
+        ]
+        PDF_NAME = time.strftime("%Y%m%d-%H%M%S") + ".pdf"
+        PDF_PATH = f"{PDF_DIR}/{PDF_NAME}"
+        images[0].save(
+            PDF_PATH, "PDF", resolution=100.0, save_all=True, append_images=images[1:]
+        )
+        await context.bot.send_document(
+            chat_id=update.message["chat"]["id"],
+            document=open(PDF_PATH, "rb"),
+            filename=PDF_NAME,
+        )
+    else:
+        await update.message.reply_html("You have to scan at least 1 document first!")
 
 
 def main() -> None:
@@ -122,6 +153,7 @@ def main() -> None:
 
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("start", start_callback))
+    application.add_handler(CommandHandler("pdf", pdf_callback))
     application.add_handler(CommandHandler("about", about_callback))
     application.add_handler(CommandHandler("help", help_callback))
     application.add_handler(CommandHandler("reset", reset_callback))
