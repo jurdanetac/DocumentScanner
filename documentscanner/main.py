@@ -113,8 +113,8 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Respond to photos"""
     img = await context.bot.get_file(update.message.photo[-1])
     await img.download_to_drive(custom_path=f"{ORIGINAL_IMG_DIR}/{img.file_id}")
-    await update.message.reply_text("I received your image. Metadata:")
-    await update.message.reply_text(img)
+    # await update.message.reply_text("I received your image. Metadata:")
+    # await update.message.reply_text(img)
     scanned_img = Scanner.scan(f"{ORIGINAL_IMG_DIR}/{img.file_id}")
     scanned_file = Image.fromarray(scanned_img)
     scanned_file_path = f"{SCANNED_IMG_DIR}/scanned_{img.file_id}.jpeg"
