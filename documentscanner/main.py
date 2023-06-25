@@ -64,8 +64,9 @@ logger = logging.getLogger(__name__)
 async def about_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /about is issued."""
     await update.message.reply_text(
-        "Proyecto final\. Programación III N\-612 2023\.\n\n"
-        "*Integrantes\:*\n"
+        "Proyecto final\.\n"
+        "_Programación III N\-612 2023\._\n\n"
+        "*__Integrantes__\:*\n"
         "\- Baez, Samuel\n"
         "\- Mavares, Cesar \n"
         "\- Urdaneta, Juan\n\n"
@@ -93,8 +94,9 @@ async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     Path(ORIGINAL_IMG_DIR).mkdir(exist_ok=True)
 
     user = update.effective_user
+    await update.message.reply_html(rf"Hi {user.mention_html()}!")
     await update.message.reply_html(
-        rf"Hi {user.mention_html()}!", reply_markup=ForceReply(selective=True)
+        rf"Send me a photo of a document! 📸📄", reply_markup=ForceReply(selective=True)
     )
 
 
@@ -106,7 +108,14 @@ async def reset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
-    await update.message.reply_text("TODO")
+    await update.message.reply_text(
+        "__*Comandos disponibles:*__\n\n"
+        "`/start` \- Inicia las funciones del bot\. Luego de colocar este comando, envía las imágenes que deseas procesar\.\n\n"
+        "`/pdf` \- Convertir las imágenes enviadas a formato pdf\. Es necesario inicializar las funciones y enviar las imágenes de antemano\. Las imágenes se verán mejoradas a la hora de la conversión\.\n\n"
+        "`/reset` \- Limpia las imágenes colocadas anteriormente para inciar un nuevo documento pdf\. En caso de querer realizar un nuevo documento o reordenar las imágenes, utilice este comando\.\n\n"
+        "`/help` \- Muestra los comandos disponibles\.",
+        parse_mode=constants.ParseMode.MARKDOWN_V2,
+    )
 
 
 async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -115,9 +124,16 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await img.download_to_drive(
         custom_path=f'{ORIGINAL_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{img.file_id}'
     )
-    scanned_img = Scanner.scan(
-        f'{ORIGINAL_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{img.file_id}'
-    )
+    try:
+        scanned_img = Scanner.scan(
+            f'{ORIGINAL_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{img.file_id}'
+        )
+    except:
+        await update.message.reply_text(
+            "*Make sure the borders of the document are distinguishable from the surface!*",
+            parse_mode=constants.ParseMode.MARKDOWN_V2,
+        )
+        return
     scanned_file = Image.fromarray(scanned_img)
     scanned_file_path = f'{SCANNED_IMG_DIR}/{str(update["message"]["chat"]["id"])}/scanned_{img.file_id}.jpeg'
     scanned_file.save(scanned_file_path)
