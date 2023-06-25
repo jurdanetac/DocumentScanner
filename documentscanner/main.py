@@ -74,19 +74,26 @@ async def about_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
-def reset_chat():
+def reset_chat(USER: str) -> None:
     """Delete previously sent pictures"""
-    shutil.rmtree(IMG_DIR, ignore_errors=True)
-    Path(IMG_DIR).mkdir(exist_ok=True)
-    Path(SCANNED_IMG_DIR).mkdir(exist_ok=True)
-    Path(ORIGINAL_IMG_DIR).mkdir(exist_ok=True)
-    shutil.rmtree(PDF_DIR, ignore_errors=True)
-    Path(PDF_DIR).mkdir(exist_ok=True)
+    shutil.rmtree(f"{ORIGINAL_IMG_DIR}/{USER}", ignore_errors=True)
+    shutil.rmtree(f"{SCANNED_IMG_DIR}/{USER}", ignore_errors=True)
+    shutil.rmtree(f"{PDF_DIR}/{USER}", ignore_errors=True)
+    Path(f"{ORIGINAL_IMG_DIR}/{USER}").mkdir(exist_ok=True)
+    Path(f"{SCANNED_IMG_DIR}/{USER}").mkdir(exist_ok=True)
+    Path(f"{PDF_DIR}/{USER}").mkdir(exist_ok=True)
+
+    # shutil.rmtree(IMG_DIR, ignore_errors=True)
+    # Path(IMG_DIR).mkdir(exist_ok=True)
+    # Path(SCANNED_IMG_DIR).mkdir(exist_ok=True)
+    # Path(ORIGINAL_IMG_DIR).mkdir(exist_ok=True)
+    # shutil.rmtree(PDF_DIR, ignore_errors=True)
+    # Path(PDF_DIR).mkdir(exist_ok=True)
 
 
 async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
-    reset_chat()
+    reset_chat(str(update["message"]["chat"]["id"]))
 
     Path(IMG_DIR).mkdir(exist_ok=True)
     Path(SCANNED_IMG_DIR).mkdir(exist_ok=True)
@@ -100,7 +107,7 @@ async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def reset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Clear old pictures stored when the command /reset is issued."""
-    reset_chat()
+    reset_chat(str(update["message"]["chat"]["id"]))
     await update.message.reply_html("Reset performed successfully.")
 
 
@@ -112,12 +119,16 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Respond to photos"""
     img = await context.bot.get_file(update.message.photo[-1])
-    await img.download_to_drive(custom_path=f"{ORIGINAL_IMG_DIR}/{img.file_id}")
+    await img.download_to_drive(
+        custom_path=f'{ORIGINAL_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{img.file_id}'
+    )
     # await update.message.reply_text("I received your image. Metadata:")
     # await update.message.reply_text(img)
-    scanned_img = Scanner.scan(f"{ORIGINAL_IMG_DIR}/{img.file_id}")
+    scanned_img = Scanner.scan(
+        f'{ORIGINAL_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{img.file_id}'
+    )
     scanned_file = Image.fromarray(scanned_img)
-    scanned_file_path = f"{SCANNED_IMG_DIR}/scanned_{img.file_id}.jpeg"
+    scanned_file_path = f'{SCANNED_IMG_DIR}/{str(update["message"]["chat"]["id"])}/scanned_{img.file_id}.jpeg'
     scanned_file.save(scanned_file_path)
     await context.bot.send_document(
         chat_id=update.message["chat"]["id"],
@@ -127,12 +138,15 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if os.listdir(SCANNED_IMG_DIR):
+    if os.listdir(f'{SCANNED_IMG_DIR}/{str(update["message"]["chat"]["id"])}'):
         images = [
-            Image.open(f"{SCANNED_IMG_DIR}/{f}") for f in os.listdir(SCANNED_IMG_DIR)
+            Image.open(f'{SCANNED_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{f}')
+            for f in os.listdir(
+                f'{SCANNED_IMG_DIR}/{str(update["message"]["chat"]["id"])}'
+            )
         ]
         PDF_NAME = time.strftime("%Y%m%d-%H%M%S") + ".pdf"
-        PDF_PATH = f"{PDF_DIR}/{PDF_NAME}"
+        PDF_PATH = f'{PDF_DIR}/{str(update["message"]["chat"]["id"])}/{PDF_NAME}'
         images[0].save(
             PDF_PATH, "PDF", resolution=100.0, save_all=True, append_images=images[1:]
         )
@@ -158,22 +172,6 @@ def main() -> None:
     application.add_handler(CommandHandler("help", help_callback))
     application.add_handler(CommandHandler("reset", reset_callback))
     application.add_handler(MessageHandler(filters.PHOTO, photo_callback))
-
-    # Add conversation handler with the state PHOTOS
-    # conv_handler = ConversationHandler(
-    #     entry_points=[CommandHandler("start", start_callback)],
-    #     states={
-    #         PHOTOS: [
-    #             MessageHandler(filters.Regex("^[1-9]\d*$"), photos_callback),
-    #         ],
-    #     },
-    #     fallbacks=[CommandHandler("cancel", cancel_callback)],
-    # )
-
-    # application.add_handler(conv_handler)
-
-    # on non command i.e message - echo the message on Telegram
-    # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     # Run the bot until the user presses Ctrl-C
     application.run_polling()
