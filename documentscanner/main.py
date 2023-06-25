@@ -83,13 +83,6 @@ def reset_chat(USER: str) -> None:
     Path(f"{SCANNED_IMG_DIR}/{USER}").mkdir(exist_ok=True)
     Path(f"{PDF_DIR}/{USER}").mkdir(exist_ok=True)
 
-    # shutil.rmtree(IMG_DIR, ignore_errors=True)
-    # Path(IMG_DIR).mkdir(exist_ok=True)
-    # Path(SCANNED_IMG_DIR).mkdir(exist_ok=True)
-    # Path(ORIGINAL_IMG_DIR).mkdir(exist_ok=True)
-    # shutil.rmtree(PDF_DIR, ignore_errors=True)
-    # Path(PDF_DIR).mkdir(exist_ok=True)
-
 
 async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
@@ -122,8 +115,6 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await img.download_to_drive(
         custom_path=f'{ORIGINAL_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{img.file_id}'
     )
-    # await update.message.reply_text("I received your image. Metadata:")
-    # await update.message.reply_text(img)
     scanned_img = Scanner.scan(
         f'{ORIGINAL_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{img.file_id}'
     )
