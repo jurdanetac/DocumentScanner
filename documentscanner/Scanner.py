@@ -16,9 +16,9 @@ def scan(img_path):
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
     edged = cv2.Canny(gray, 75, 200)
 
-    print("STEP 1: Edge Detection")
-    cv2.imshow("Image", image)
-    cv2.imshow("Edged", edged)
+    # print("STEP 1: Edge Detection")
+    # cv2.imshow("Image", image)
+    # cv2.imshow("Edged", edged)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
@@ -36,9 +36,9 @@ def scan(img_path):
             screenCnt = approx
             break
 
-    print("STEP 2: Finding contours of paper")
+    # print("STEP 2: Finding contours of paper")
     cv2.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
-    cv2.imshow("Outline", image)
+    # cv2.imshow("Outline", image)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
@@ -48,9 +48,9 @@ def scan(img_path):
     T = threshold_local(warped, 11, offset=10, method="gaussian")
     warped = (warped > T).astype("uint8") * 255
 
-    print("STEP 3: Applying perspective transform")
-    cv2.imshow("Original", imutils.resize(orig, height=650))
-    cv2.imshow("Scanned", imutils.resize(warped, height=650))
+    # print("STEP 3: Applying perspective transform")
+    # cv2.imshow("Original", imutils.resize(orig, height=650))
+    # cv2.imshow("Scanned", imutils.resize(warped, height=650))
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 

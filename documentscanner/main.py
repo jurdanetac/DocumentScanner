@@ -43,6 +43,8 @@ PDF_DIR = f"{ROOT_DIR}/pdf"
 # Path of bot token
 TOKEN_PATH = f"{ROOT_DIR}/token"
 
+last_sent_pic = {}
+
 
 # Load bot token
 try:
@@ -83,15 +85,18 @@ def reset_chat(USER: str) -> None:
     Path(f"{ORIGINAL_IMG_DIR}/{USER}").mkdir(exist_ok=True)
     Path(f"{SCANNED_IMG_DIR}/{USER}").mkdir(exist_ok=True)
     Path(f"{PDF_DIR}/{USER}").mkdir(exist_ok=True)
+    last_sent_pic[USER] = []
 
 
 async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /start is issued."""
-    reset_chat(str(update["message"]["chat"]["id"]))
-
     Path(IMG_DIR).mkdir(exist_ok=True)
     Path(SCANNED_IMG_DIR).mkdir(exist_ok=True)
     Path(ORIGINAL_IMG_DIR).mkdir(exist_ok=True)
+
+    USER = str(update["message"]["chat"]["id"])
+    reset_chat(USER)
+    last_sent_pic[USER] = []
 
     user = update.effective_user
     await update.message.reply_html(rf"Hi {user.mention_html()}!")
@@ -102,7 +107,8 @@ async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def reset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Clear old pictures stored when the command /reset is issued."""
-    reset_chat(str(update["message"]["chat"]["id"]))
+    USER = str(update["message"]["chat"]["id"])
+    reset_chat(USER)
     await update.message.reply_html("Reset performed successfully.")
 
 
@@ -113,6 +119,7 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "`/start` \- Inicia las funciones del bot\. Luego de colocar este comando, envía las imágenes que deseas procesar\.\n\n"
         "`/pdf` \- Convertir las imágenes enviadas a formato pdf\. Es necesario inicializar las funciones y enviar las imágenes de antemano\. Las imágenes se verán mejoradas a la hora de la conversión\.\n\n"
         "`/reset` \- Limpia las imágenes colocadas anteriormente para inciar un nuevo documento pdf\. En caso de querer realizar un nuevo documento o reordenar las imágenes, utilice este comando\.\n\n"
+        "`/last` \- Descartar la última foto enviada, si la hay\.\n\n"
         "`/help` \- Muestra los comandos disponibles\.",
         parse_mode=constants.ParseMode.MARKDOWN_V2,
     )
@@ -120,23 +127,37 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Respond to photos"""
+    USER = str(update["message"]["chat"]["id"])
+
+    await update.message.reply_text(
+        "*Proccessing\.\.\.*",
+        parse_mode=constants.ParseMode.MARKDOWN_V2,
+    )
+
     img = await context.bot.get_file(update.message.photo[-1])
     await img.download_to_drive(
-        custom_path=f'{ORIGINAL_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{img.file_id}'
+        custom_path=f"{ORIGINAL_IMG_DIR}/{USER}/{img.file_id}.jpeg"
     )
+
     try:
-        scanned_img = Scanner.scan(
-            f'{ORIGINAL_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{img.file_id}'
-        )
+        scanned_img = Scanner.scan(f"{ORIGINAL_IMG_DIR}/{USER}/{img.file_id}.jpeg")
     except:
         await update.message.reply_text(
             "*Make sure the borders of the document are distinguishable from the surface!*",
             parse_mode=constants.ParseMode.MARKDOWN_V2,
         )
         return
+
+    last_sent_pic[USER].append(f"{img.file_id}.jpeg")
     scanned_file = Image.fromarray(scanned_img)
-    scanned_file_path = f'{SCANNED_IMG_DIR}/{str(update["message"]["chat"]["id"])}/scanned_{img.file_id}.jpeg'
+    scanned_file_path = f"{SCANNED_IMG_DIR}/{USER}/scanned_{img.file_id}.jpeg"
     scanned_file.save(scanned_file_path)
+
+    await update.message.reply_text(
+        "Image scanned\. To discard from document use `/last`",
+        parse_mode=constants.ParseMode.MARKDOWN_V2,
+    )
+
     await context.bot.send_document(
         chat_id=update.message["chat"]["id"],
         document=open(scanned_file_path, "rb"),
@@ -144,16 +165,33 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
+async def last_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Discard last image sent"""
+    USER = str(update.message["chat"]["id"])
+    if USER in last_sent_pic and last_sent_pic[USER]:
+        try:
+            os.remove(f"{SCANNED_IMG_DIR}/{USER}/scanned_{last_sent_pic[USER][-1]}")
+            os.remove(f"{ORIGINAL_IMG_DIR}/{USER}/{last_sent_pic[USER][-1]}")
+            last_sent_pic[USER].pop()
+            await update.message.reply_html("Image discarded.")
+        except OSError as e:
+            print(e)
+            await update.message.reply_html("No images remaining.")
+    else:
+        await update.message.reply_html("You haven't sent an image yet.")
+
+
 async def pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if os.listdir(f'{SCANNED_IMG_DIR}/{str(update["message"]["chat"]["id"])}'):
+    """Convert to pdf sent images and send the document back to the user"""
+    USER = str(update["message"]["chat"]["id"])
+
+    if os.listdir(f"{SCANNED_IMG_DIR}/{USER}"):
         images = [
-            Image.open(f'{SCANNED_IMG_DIR}/{str(update["message"]["chat"]["id"])}/{f}')
-            for f in os.listdir(
-                f'{SCANNED_IMG_DIR}/{str(update["message"]["chat"]["id"])}'
-            )
+            Image.open(f"{SCANNED_IMG_DIR}/{USER}/{f}")
+            for f in os.listdir(f"{SCANNED_IMG_DIR}/{USER}")
         ]
         PDF_NAME = time.strftime("%Y%m%d-%H%M%S") + ".pdf"
-        PDF_PATH = f'{PDF_DIR}/{str(update["message"]["chat"]["id"])}/{PDF_NAME}'
+        PDF_PATH = f"{PDF_DIR}/{USER}/{PDF_NAME}"
         images[0].save(
             PDF_PATH, "PDF", resolution=100.0, save_all=True, append_images=images[1:]
         )
@@ -173,11 +211,12 @@ def main() -> None:
     application = ApplicationBuilder().token(TOKEN).build()
 
     # on different commands - answer in Telegram
-    application.add_handler(CommandHandler("start", start_callback))
-    application.add_handler(CommandHandler("pdf", pdf_callback))
     application.add_handler(CommandHandler("about", about_callback))
     application.add_handler(CommandHandler("help", help_callback))
+    application.add_handler(CommandHandler("last", last_callback))
+    application.add_handler(CommandHandler("pdf", pdf_callback))
     application.add_handler(CommandHandler("reset", reset_callback))
+    application.add_handler(CommandHandler("start", start_callback))
     application.add_handler(MessageHandler(filters.PHOTO, photo_callback))
 
     # Run the bot until the user presses Ctrl-C
