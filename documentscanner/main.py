@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# Import needed third-party libraries
-# See requirements.txt for more information
+# Importar libreriías necesarias
+# Véase requirements.txt para más información
 
 import logging
 import os
@@ -29,30 +29,30 @@ from telegram.ext import (
 
 import Scanner
 
-# Path of project directory root
+# Ruta del directorio origen
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# Path of images directory
+# Ruta de los directorios de las imágenes
 IMG_DIR = f"{ROOT_DIR}/images"
 SCANNED_IMG_DIR = f"{ROOT_DIR}/images/scanned"
 ORIGINAL_IMG_DIR = f"{ROOT_DIR}/images/original"
-# Path of scanned documents
+# Ruta del directorio de los documentos pdf
 PDF_DIR = f"{ROOT_DIR}/pdf"
-# Path of bot token
+# Ruta del token del bot
 TOKEN_PATH = f"{ROOT_DIR}/token"
 
 last_sent_pic = {}
 
 
-# Load bot token
+# Leer token
 try:
     with open(TOKEN_PATH, mode="r", encoding="utf-8") as file:
         TOKEN = file.read().strip()
 except FileNotFoundError:
-    print("Bot token file not found")
+    print("No se encontró el token del bot")
     sys.exit(1)
 
 
-# Output logs to console
+# Imprimir operaciones a la consola
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 
 
 async def about_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /about is issued."""
+    """Responder al enviar el comando /about"""
     await update.message.reply_text(
         "Proyecto final\.\n"
         "_Programación III N\-612 2023\._\n\n"
@@ -75,7 +75,7 @@ async def about_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 def reset_chat(user: str) -> None:
-    """Delete previously sent pictures"""
+    """Eliminar imágenes enviadas anteriormente"""
     shutil.rmtree(f"{ORIGINAL_IMG_DIR}/{user}", ignore_errors=True)
     shutil.rmtree(f"{SCANNED_IMG_DIR}/{user}", ignore_errors=True)
     shutil.rmtree(f"{PDF_DIR}/{user}", ignore_errors=True)
@@ -86,7 +86,7 @@ def reset_chat(user: str) -> None:
 
 
 async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /start is issued."""
+    """Responder al enviar el comando /start"""
     Path(IMG_DIR).mkdir(exist_ok=True)
     Path(SCANNED_IMG_DIR).mkdir(exist_ok=True)
     Path(ORIGINAL_IMG_DIR).mkdir(exist_ok=True)
@@ -96,22 +96,22 @@ async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     last_sent_pic[user] = []
 
     user = update.effective_user
-    await update.message.reply_html(rf"Hi {user.mention_html()}!")
+    await update.message.reply_html(rf"Hola {user.mention_html()}!")
     await update.message.reply_html(
-        r"Send me a photo of a document! 📸📄",
+        r"Envíame una foto del documento! 📸📄",
         reply_markup=ForceReply(selective=True),
     )
 
 
 async def reset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Clear old pictures stored when the command /reset is issued."""
+    """Eliminar imágenes enviadas cuando se envía el comando /reset"""
     user = str(update["message"]["chat"]["id"])
     reset_chat(user)
-    await update.message.reply_html("Reset performed successfully.")
+    await update.message.reply_html("Reseteo completado exitosamente")
 
 
 async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /help is issued."""
+    """Responder al enviar el comando /help"""
     await update.message.reply_text(
         "__*Comandos disponibles:*__\n\n"
         "`/start` \- Inicia las funciones del bot\. Luego de colocar este comando, envía las imágenes que deseas procesar\.\n\n"
@@ -124,11 +124,11 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Respond to photos"""
+    """Responder a imagenes"""
     user = str(update["message"]["chat"]["id"])
 
     await update.message.reply_text(
-        "*Proccessing\.\.\.*",
+        "*Procesando\.\.\.*",
         parse_mode=constants.ParseMode.MARKDOWN_V2,
     )
 
@@ -142,7 +142,7 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     except cv2.error as cv_error:
         print(cv_error)
         await update.message.reply_text(
-            "*Make sure the borders of the document are distinguishable from the surface\!*",
+            "Asegúrese de que los bordes de la hoja son distinguibles de la superficie\!*",
             parse_mode=constants.ParseMode.MARKDOWN_V2,
         )
         return
@@ -153,7 +153,7 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     scanned_file.save(scanned_file_path)
 
     await update.message.reply_text(
-        "Image scanned\. To discard from document use `/last`",
+        "Imagen escaneada\. Para descartarla del documento utilice`/last`",
         parse_mode=constants.ParseMode.MARKDOWN_V2,
     )
 
@@ -165,23 +165,23 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def last_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Discard last image sent"""
+    """Descartar última imagen enviada"""
     user = str(update.message["chat"]["id"])
     if user in last_sent_pic and last_sent_pic[user]:
         try:
             os.remove(f"{SCANNED_IMG_DIR}/{user}/scanned_{last_sent_pic[user][-1]}")
             os.remove(f"{ORIGINAL_IMG_DIR}/{user}/{last_sent_pic[user][-1]}")
             last_sent_pic[user].pop()
-            await update.message.reply_html("Image discarded.")
+            await update.message.reply_html("Imagen descartada.")
         except OSError as os_error:
             print(os_error)
-            await update.message.reply_html("No images remaining.")
+            await update.message.reply_html("No hay más imágenes.")
     else:
-        await update.message.reply_html("You haven't sent an image yet.")
+        await update.message.reply_html("No ha enviado ninguna imagen aún.")
 
 
 async def pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Convert to pdf sent images and send the document back to the user"""
+    """Convertir a pdf las imágenes y reenviar al usuario"""
     user = str(update["message"]["chat"]["id"])
 
     if os.listdir(f"{SCANNED_IMG_DIR}/{user}"):
@@ -205,16 +205,16 @@ async def pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 filename=pdf_name,
             )
     else:
-        await update.message.reply_html("You have to scan at least 1 document first!")
+        await update.message.reply_html("Debes escanear 1 documento al menos!")
 
 
 def main() -> None:
-    """Start the bot."""
+    """Iniciar el bot."""
 
-    # Create the Application and pass it your bot's token.
+    # Crear aplicación y pasarle el token como argumento
     application = ApplicationBuilder().token(TOKEN).build()
 
-    # on different commands - answer in Telegram
+    # Responder comandos en Telegram
     application.add_handler(CommandHandler("about", about_callback))
     application.add_handler(CommandHandler("help", help_callback))
     application.add_handler(CommandHandler("last", last_callback))
@@ -223,13 +223,13 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start_callback))
     application.add_handler(MessageHandler(filters.PHOTO, photo_callback))
 
-    # Run the bot until the user presses Ctrl-C
+    # Ejecutar bot hasta que el usuario presione Ctrl-C
     application.run_polling()
 
-    # Terminate program
+    # Terminar programa
     sys.exit(0)
 
 
-# Main program execution
+# Ejecución principal
 if __name__ == "__main__":
     main()
