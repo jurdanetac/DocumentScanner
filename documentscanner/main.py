@@ -157,11 +157,12 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         parse_mode=constants.ParseMode.MARKDOWN_V2,
     )
 
-    await context.bot.send_document(
-        chat_id=update.message["chat"]["id"],
-        document=open(scanned_file_path, "rb"),
-        filename=scanned_file_path,
-    )
+    with open(scanned_file_path, "rb", econding="utf-8") as doc:
+        await context.bot.send_document(
+            chat_id=update.message["chat"]["id"],
+            document=doc,
+            filename=scanned_file_path,
+        )
 
 
 async def last_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
