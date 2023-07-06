@@ -157,7 +157,7 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         parse_mode=constants.ParseMode.MARKDOWN_V2,
     )
 
-    with open(scanned_file_path, "rb", econding="utf-8") as doc:
+    with open(scanned_file_path, "rb", enconding="utf-8") as doc:
         await context.bot.send_document(
             chat_id=update.message["chat"]["id"],
             document=doc,
