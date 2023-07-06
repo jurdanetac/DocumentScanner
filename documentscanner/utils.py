@@ -29,7 +29,12 @@ def transformFourPoints(image, pts):
     maxHeight = max(int(heightA), int(heightB))
 
     dst = np.array(
-        [[0, 0], [maxWidth - 1, 0], [maxWidth - 1, maxHeight - 1], [0, maxHeight - 1]],
+        [
+            [0, 0],
+            [maxWidth - 1, 0],
+            [maxWidth - 1, maxHeight - 1],
+            [0, maxHeight - 1],
+        ],
         dtype="float32",
     )
 

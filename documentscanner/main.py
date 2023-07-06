@@ -12,12 +12,10 @@ import time
 from pathlib import Path
 
 import cv2
-import numpy
+
 from PIL import Image
 from telegram import (
     ForceReply,
-    ReplyKeyboardMarkup,
-    ReplyKeyboardRemove,
     Update,
     constants,
 )
@@ -25,7 +23,6 @@ from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     ContextTypes,
-    ConversationHandler,
     MessageHandler,
     filters,
 )
@@ -48,7 +45,7 @@ last_sent_pic = {}
 
 # Load bot token
 try:
-    with open(TOKEN_PATH, "r") as file:
+    with open(TOKEN_PATH, mode="r", encoding="utf-8") as file:
         TOKEN = file.read().strip()
 except FileNotFoundError:
     print("Bot token file not found")
@@ -77,15 +74,15 @@ async def about_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
-def reset_chat(USER: str) -> None:
+def reset_chat(user: str) -> None:
     """Delete previously sent pictures"""
-    shutil.rmtree(f"{ORIGINAL_IMG_DIR}/{USER}", ignore_errors=True)
-    shutil.rmtree(f"{SCANNED_IMG_DIR}/{USER}", ignore_errors=True)
-    shutil.rmtree(f"{PDF_DIR}/{USER}", ignore_errors=True)
-    Path(f"{ORIGINAL_IMG_DIR}/{USER}").mkdir(exist_ok=True)
-    Path(f"{SCANNED_IMG_DIR}/{USER}").mkdir(exist_ok=True)
-    Path(f"{PDF_DIR}/{USER}").mkdir(exist_ok=True)
-    last_sent_pic[USER] = []
+    shutil.rmtree(f"{ORIGINAL_IMG_DIR}/{user}", ignore_errors=True)
+    shutil.rmtree(f"{SCANNED_IMG_DIR}/{user}", ignore_errors=True)
+    shutil.rmtree(f"{PDF_DIR}/{user}", ignore_errors=True)
+    Path(f"{ORIGINAL_IMG_DIR}/{user}").mkdir(exist_ok=True)
+    Path(f"{SCANNED_IMG_DIR}/{user}").mkdir(exist_ok=True)
+    Path(f"{PDF_DIR}/{user}").mkdir(exist_ok=True)
+    last_sent_pic[user] = []
 
 
 async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -94,21 +91,22 @@ async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     Path(SCANNED_IMG_DIR).mkdir(exist_ok=True)
     Path(ORIGINAL_IMG_DIR).mkdir(exist_ok=True)
 
-    USER = str(update["message"]["chat"]["id"])
-    reset_chat(USER)
-    last_sent_pic[USER] = []
+    user = str(update["message"]["chat"]["id"])
+    reset_chat(user)
+    last_sent_pic[user] = []
 
     user = update.effective_user
     await update.message.reply_html(rf"Hi {user.mention_html()}!")
     await update.message.reply_html(
-        rf"Send me a photo of a document! 📸📄", reply_markup=ForceReply(selective=True)
+        r"Send me a photo of a document! 📸📄",
+        reply_markup=ForceReply(selective=True),
     )
 
 
 async def reset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Clear old pictures stored when the command /reset is issued."""
-    USER = str(update["message"]["chat"]["id"])
-    reset_chat(USER)
+    user = str(update["message"]["chat"]["id"])
+    reset_chat(user)
     await update.message.reply_html("Reset performed successfully.")
 
 
@@ -127,7 +125,7 @@ async def help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Respond to photos"""
-    USER = str(update["message"]["chat"]["id"])
+    user = str(update["message"]["chat"]["id"])
 
     await update.message.reply_text(
         "*Proccessing\.\.\.*",
@@ -136,21 +134,22 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     img = await context.bot.get_file(update.message.photo[-1])
     await img.download_to_drive(
-        custom_path=f"{ORIGINAL_IMG_DIR}/{USER}/{img.file_id}.jpeg"
+        custom_path=f"{ORIGINAL_IMG_DIR}/{user}/{img.file_id}.jpeg"
     )
 
     try:
-        scanned_img = Scanner.scan(f"{ORIGINAL_IMG_DIR}/{USER}/{img.file_id}.jpeg")
-    except:
+        scanned_img = Scanner.scan(f"{ORIGINAL_IMG_DIR}/{user}/{img.file_id}.jpeg")
+    except cv2.error as cv_error:
+        print(cv_error)
         await update.message.reply_text(
-            "*Make sure the borders of the document are distinguishable from the surface!*",
+            "*Make sure the borders of the document are distinguishable from the surface\!*",
             parse_mode=constants.ParseMode.MARKDOWN_V2,
         )
         return
 
-    last_sent_pic[USER].append(f"{img.file_id}.jpeg")
+    last_sent_pic[user].append(f"{img.file_id}.jpeg")
     scanned_file = Image.fromarray(scanned_img)
-    scanned_file_path = f"{SCANNED_IMG_DIR}/{USER}/scanned_{img.file_id}.jpeg"
+    scanned_file_path = f"{SCANNED_IMG_DIR}/{user}/scanned_{img.file_id}.jpeg"
     scanned_file.save(scanned_file_path)
 
     await update.message.reply_text(
@@ -167,15 +166,15 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def last_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Discard last image sent"""
-    USER = str(update.message["chat"]["id"])
-    if USER in last_sent_pic and last_sent_pic[USER]:
+    user = str(update.message["chat"]["id"])
+    if user in last_sent_pic and last_sent_pic[user]:
         try:
-            os.remove(f"{SCANNED_IMG_DIR}/{USER}/scanned_{last_sent_pic[USER][-1]}")
-            os.remove(f"{ORIGINAL_IMG_DIR}/{USER}/{last_sent_pic[USER][-1]}")
-            last_sent_pic[USER].pop()
+            os.remove(f"{SCANNED_IMG_DIR}/{user}/scanned_{last_sent_pic[user][-1]}")
+            os.remove(f"{ORIGINAL_IMG_DIR}/{user}/{last_sent_pic[user][-1]}")
+            last_sent_pic[user].pop()
             await update.message.reply_html("Image discarded.")
-        except OSError as e:
-            print(e)
+        except OSError as os_error:
+            print(os_error)
             await update.message.reply_html("No images remaining.")
     else:
         await update.message.reply_html("You haven't sent an image yet.")
@@ -183,23 +182,28 @@ async def last_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Convert to pdf sent images and send the document back to the user"""
-    USER = str(update["message"]["chat"]["id"])
+    user = str(update["message"]["chat"]["id"])
 
-    if os.listdir(f"{SCANNED_IMG_DIR}/{USER}"):
+    if os.listdir(f"{SCANNED_IMG_DIR}/{user}"):
         images = [
-            Image.open(f"{SCANNED_IMG_DIR}/{USER}/{f}")
-            for f in os.listdir(f"{SCANNED_IMG_DIR}/{USER}")
+            Image.open(f"{SCANNED_IMG_DIR}/{user}/{f}")
+            for f in os.listdir(f"{SCANNED_IMG_DIR}/{user}")
         ]
-        PDF_NAME = time.strftime("%Y%m%d-%H%M%S") + ".pdf"
-        PDF_PATH = f"{PDF_DIR}/{USER}/{PDF_NAME}"
+        pdf_name = time.strftime("%Y%m%d-%H%M%S") + ".pdf"
+        pdf_path = f"{PDF_DIR}/{user}/{pdf_name}"
         images[0].save(
-            PDF_PATH, "PDF", resolution=100.0, save_all=True, append_images=images[1:]
+            pdf_path,
+            "PDF",
+            resolution=100.0,
+            save_all=True,
+            append_images=images[1:],
         )
-        await context.bot.send_document(
-            chat_id=update.message["chat"]["id"],
-            document=open(PDF_PATH, "rb"),
-            filename=PDF_NAME,
-        )
+        with open(pdf_path, mode="rb", encoding="utf-8") as doc:
+            await context.bot.send_document(
+                chat_id=update.message["chat"]["id"],
+                document=doc,
+                filename=pdf_name,
+            )
     else:
         await update.message.reply_html("You have to scan at least 1 document first!")
 
