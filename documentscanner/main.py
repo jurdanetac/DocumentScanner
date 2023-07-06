@@ -142,7 +142,7 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     except cv2.error as cv_error:
         print(cv_error)
         await update.message.reply_text(
-            "Asegúrese de que los bordes de la hoja son distinguibles de la superficie\!*",
+            "*Asegúrese de que los bordes de la hoja son distinguibles de la superficie\!*",
             parse_mode=constants.ParseMode.MARKDOWN_V2,
         )
         return
