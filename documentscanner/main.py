@@ -95,8 +95,7 @@ async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     reset_chat(user)
     last_sent_pic[user] = []
 
-    user = update.effective_user
-    await update.message.reply_html(rf"Hola {user.mention_html()}!")
+    await update.message.reply_html(rf"Hola {update.effective_user.mention_html()}!")
     await update.message.reply_html(
         r"Envíame una foto del documento! 📸📄",
         reply_markup=ForceReply(selective=True),
@@ -147,6 +146,9 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         return
 
+    if user not in last_sent_pic:
+        last_sent_pic[user] = []
+
     last_sent_pic[user].append(f"{img.file_id}.jpeg")
     scanned_file = Image.fromarray(scanned_img)
     scanned_file_path = f"{SCANNED_IMG_DIR}/{user}/scanned_{img.file_id}.jpeg"
@@ -157,7 +159,7 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         parse_mode=constants.ParseMode.MARKDOWN_V2,
     )
 
-    with open(scanned_file_path, "rb", enconding="utf-8") as doc:
+    with open(scanned_file_path, "rb") as doc:
         await context.bot.send_document(
             chat_id=update.message["chat"]["id"],
             document=doc,
@@ -199,7 +201,7 @@ async def pdf_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             save_all=True,
             append_images=images[1:],
         )
-        with open(pdf_path, mode="rb", encoding="utf-8") as doc:
+        with open(pdf_path, mode="rb") as doc:
             await context.bot.send_document(
                 chat_id=update.message["chat"]["id"],
                 document=doc,
