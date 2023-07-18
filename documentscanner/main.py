@@ -79,18 +79,14 @@ def reset_chat(user: str) -> None:
     shutil.rmtree(f"{ORIGINAL_IMG_DIR}/{user}", ignore_errors=True)
     shutil.rmtree(f"{SCANNED_IMG_DIR}/{user}", ignore_errors=True)
     shutil.rmtree(f"{PDF_DIR}/{user}", ignore_errors=True)
-    Path(f"{ORIGINAL_IMG_DIR}/{user}").mkdir(exist_ok=True)
-    Path(f"{SCANNED_IMG_DIR}/{user}").mkdir(exist_ok=True)
-    Path(f"{PDF_DIR}/{user}").mkdir(exist_ok=True)
+    Path(f"{ORIGINAL_IMG_DIR}/{user}").mkdir(exist_ok=True, parents=True)
+    Path(f"{SCANNED_IMG_DIR}/{user}").mkdir(exist_ok=True, parents=True)
+    Path(f"{PDF_DIR}/{user}").mkdir(exist_ok=True, parents=True)
     last_sent_pic[user] = []
 
 
 async def start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Responder al enviar el comando /start"""
-    Path(IMG_DIR).mkdir(exist_ok=True)
-    Path(SCANNED_IMG_DIR).mkdir(exist_ok=True)
-    Path(ORIGINAL_IMG_DIR).mkdir(exist_ok=True)
-
     user = str(update["message"]["chat"]["id"])
     reset_chat(user)
     last_sent_pic[user] = []
