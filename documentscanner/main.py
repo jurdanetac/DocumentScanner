@@ -128,18 +128,18 @@ async def photo_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
     img = await context.bot.get_file(update.message.photo[-1])
-    await img.download_to_drive(
-        custom_path=f"{ORIGINAL_IMG_DIR}/{user}/{img.file_id}.jpeg"
-    )
+    original_img_path = f"{ORIGINAL_IMG_DIR}/{user}/{img.file_id}.jpeg"
+    await img.download_to_drive(custom_path=original_img_path)
 
     try:
-        scanned_img = Scanner.scan(f"{ORIGINAL_IMG_DIR}/{user}/{img.file_id}.jpeg")
+        scanned_img = Scanner.scan(original_img_path)
     except cv2.error as cv_error:
         print(cv_error)
         await update.message.reply_text(
             "*Asegúrese de que los bordes de la hoja son distinguibles de la superficie\!*",
             parse_mode=constants.ParseMode.MARKDOWN_V2,
         )
+        os.remove(original_img_path)
         return
 
     if user not in last_sent_pic:
